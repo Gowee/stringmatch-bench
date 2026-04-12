@@ -4,6 +4,8 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::time::Instant;
 
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine;
 use clap::Parser;
 use rand::seq::SliceRandom;
 
@@ -363,6 +365,13 @@ fn main() {
             );
             println!("dummy: {}", dummy);
         }
+    }
+
+    {
+        println!("[aho-corasick/nfa]");
+        let start = Instant::now();
+        let pma = aho_corasick::AhoCorasick::new(&keys).unwrap();
+        print_heap_bytes(pma.memory_usage());
     }
 }
 
