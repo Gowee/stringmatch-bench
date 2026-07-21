@@ -1,6 +1,5 @@
 pytest>=7.1.2
 pytest-benchmark>=3.4.1
 
-ahocorasick_rs==0.12.2
+ahocorasick_rs==1.0.3
 daachorse==0.3.0
-pyahocorasick==1.4.4

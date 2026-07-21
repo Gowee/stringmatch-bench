@@ -12,10 +12,17 @@ def run_ahocorasick_rs(pma, haystack):
     pma.find_matches_as_indexes(haystack, True)
 
 
-def test_daachorse_unidic_bench(benchmark):
+def test_daachorse_bytewise_unidic_bench(benchmark):
+    patterns = [pattern.encode() for pattern in dataset.load_unidic()]
+    haystack = dataset.load_wagahaiwa_nekodearu().encode()
+    pma = daachorse.DoubleArrayAhoCorasick(patterns)
+    benchmark(run_daachorse, pma, haystack)
+
+
+def test_daachorse_charwise_unidic_bench(benchmark):
     patterns = dataset.load_unidic()
     haystack = dataset.load_wagahaiwa_nekodearu()
-    pma = daachorse.Automaton(patterns)
+    pma = daachorse.CharwiseDoubleArrayAhoCorasick(patterns)
     benchmark(run_daachorse, pma, haystack)
 
 

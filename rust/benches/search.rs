@@ -102,7 +102,7 @@ where
                 .unwrap()
         });
     });
-    // yada cannot load cl100k_base and o200k_base due to a bug.
+    // yada cannot build cl100k_base and o200k_base because they contain keys with NULL bytes.
     // See https://github.com/takuyaa/yada/issues/34
     if patterns.len() != 100256 && patterns.len() != 199998 {
         group.bench_function("yada", |b| {
@@ -234,7 +234,7 @@ fn add_bytewise_find_overlapping_benches<P>(
             .unwrap();
         aho_corasick_bench!(b, pma, find_overlapping_iter, haystacks);
     });
-    // yada cannot load cl100k_base and o200k_base due to a bug.
+    // yada cannot build cl100k_base and o200k_base because they contain keys with NULL bytes.
     // See https://github.com/takuyaa/yada/issues/34
     if patterns.len() != 100256 && patterns.len() != 199998 {
         group.bench_function("yada", |b| {
