@@ -9,16 +9,16 @@ use aho_corasick::AhoCorasickKind;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use criterion::{
-    criterion_group, criterion_main, measurement::WallTime, BenchmarkGroup, Criterion, SamplingMode,
+    criterion_group, criterion_main, measurement::WallTime, BenchmarkGroup, Criterion,
 };
 
 const BUILD_SAMPLE_SIZE: usize = 10;
-const BUILD_WARM_UP_TIME: Duration = Duration::from_millis(500);
-const BUILD_MEASURE_TIME: Duration = Duration::from_secs(2);
+const BUILD_WARM_UP_TIME: Duration = Duration::from_secs(3);
+const BUILD_MEASURE_TIME: Duration = Duration::from_secs(5);
 
-const SEARCH_SAMPLE_SIZE: usize = 30;
-const SEARCH_WARM_UP_TIME: Duration = Duration::from_millis(500);
-const SEARCH_MEASURE_TIME: Duration = Duration::from_secs(2);
+const SEARCH_SAMPLE_SIZE: usize = 100;
+const SEARCH_WARM_UP_TIME: Duration = Duration::from_secs(3);
+const SEARCH_MEASURE_TIME: Duration = Duration::from_secs(5);
 
 macro_rules! define_build_bench {
     ( $func_name:ident, $bench:ident, $group:literal, $loader:ident, $corpus:literal ) => {
@@ -27,7 +27,6 @@ macro_rules! define_build_bench {
             group.sample_size(BUILD_SAMPLE_SIZE);
             group.warm_up_time(BUILD_WARM_UP_TIME);
             group.measurement_time(BUILD_MEASURE_TIME);
-            group.sampling_mode(SamplingMode::Flat);
             let mut patterns = $loader($corpus);
             patterns.sort_unstable();
             $bench(&mut group, &patterns);
@@ -42,7 +41,6 @@ macro_rules! define_find_bench {
             group.sample_size(SEARCH_SAMPLE_SIZE);
             group.warm_up_time(SEARCH_WARM_UP_TIME);
             group.measurement_time(SEARCH_MEASURE_TIME);
-            group.sampling_mode(SamplingMode::Flat);
             let mut patterns = $loader($corpus);
             patterns.sort_unstable();
             let haystacks = load_text_file($haystack);
@@ -87,11 +85,11 @@ fn add_bytewise_build_benches<P>(group: &mut BenchmarkGroup<WallTime>, patterns:
 where
     P: AsRef<[u8]> + Clone + Hash + Eq,
 {
-    group.bench_function("daachorse/bytewise/u64", |b| {
-        b.iter(|| daachorse::DoubleArrayAhoCorasick::<u64>::new(patterns).unwrap());
-    });
     group.bench_function("daachorse/bytewise/u32", |b| {
         b.iter(|| daachorse::DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap());
+    });
+    group.bench_function("daachorse/bytewise/u64", |b| {
+        b.iter(|| daachorse::DoubleArrayAhoCorasick::<u64>::new(patterns).unwrap());
     });
     group.bench_function("aho_corasick/nfa", |b| {
         b.iter(|| aho_corasick::AhoCorasick::new(patterns));
@@ -104,19 +102,23 @@ where
                 .unwrap()
         });
     });
-    group.bench_function("yada", |b| {
-        b.iter(|| {
-            yada::builder::DoubleArrayBuilder::build(
-                &patterns
-                    .iter()
-                    .cloned()
-                    .enumerate()
-                    .map(|(i, pattern)| (pattern, i.try_into().unwrap()))
-                    .collect::<Vec<_>>(),
-            )
-            .unwrap()
+    // yada cannot load cl100k_base and o200k_base due to a bug.
+    // See https://github.com/takuyaa/yada/issues/34
+    if patterns.len() != 100256 && patterns.len() != 199998 {
+        group.bench_function("yada", |b| {
+            b.iter(|| {
+                yada::builder::DoubleArrayBuilder::build(
+                    &patterns
+                        .iter()
+                        .cloned()
+                        .enumerate()
+                        .map(|(i, pattern)| (pattern, i.try_into().unwrap()))
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap()
+            });
         });
-    });
+    }
     group.bench_function("fst/map", |b| {
         b.iter(|| {
             fst::raw::Fst::from_iter_map(
@@ -141,11 +143,11 @@ where
 }
 
 fn add_charwise_build_benches(group: &mut BenchmarkGroup<WallTime>, patterns: &[String]) {
-    group.bench_function("daachorse/charwise/u64", |b| {
-        b.iter(|| daachorse::CharwiseDoubleArrayAhoCorasick::<u64>::new(patterns).unwrap());
-    });
     group.bench_function("daachorse/charwise/u32", |b| {
         b.iter(|| daachorse::CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap());
+    });
+    group.bench_function("daachorse/charwise/u64", |b| {
+        b.iter(|| daachorse::CharwiseDoubleArrayAhoCorasick::<u64>::new(patterns).unwrap());
     });
     group.bench_function("crawdad/trie", |b| {
         b.iter(|| crawdad::Trie::from_keys(patterns).unwrap());
@@ -162,12 +164,12 @@ fn add_bytewise_find_benches<P>(
 ) where
     P: AsRef<[u8]> + Clone + Hash + Eq,
 {
-    group.bench_function("daachorse/bytewise/u64", |b| {
-        let pma = daachorse::DoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
-        daachorse_bench!(b, pma, find_iter, haystacks);
-    });
     group.bench_function("daachorse/bytewise/u32", |b| {
         let pma = daachorse::DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_iter, haystacks);
+    });
+    group.bench_function("daachorse/bytewise/u64", |b| {
+        let pma = daachorse::DoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
         daachorse_bench!(b, pma, find_iter, haystacks);
     });
     group.bench_function("aho_corasick/nfa", |b| {
@@ -188,12 +190,12 @@ fn add_charwise_find_benches(
     patterns: &[String],
     haystacks: &[String],
 ) {
-    group.bench_function("daachorse/charwise/u64", |b| {
-        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
-        daachorse_bench!(b, pma, find_iter, haystacks);
-    });
     group.bench_function("daachorse/charwise/u32", |b| {
         let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_iter, haystacks);
+    });
+    group.bench_function("daachorse/charwise/u64", |b| {
+        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
         daachorse_bench!(b, pma, find_iter, haystacks);
     });
 }
@@ -205,12 +207,12 @@ fn add_bytewise_find_overlapping_benches<P>(
 ) where
     P: AsRef<[u8]> + Clone + Hash + Eq,
 {
-    group.bench_function("daachorse/bytewise/u64", |b| {
-        let pma = daachorse::DoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
-        daachorse_bench!(b, pma, find_overlapping_iter, haystacks);
-    });
     group.bench_function("daachorse/bytewise/u32", |b| {
         let pma = daachorse::DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_overlapping_iter, haystacks);
+    });
+    group.bench_function("daachorse/bytewise/u64", |b| {
+        let pma = daachorse::DoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
         daachorse_bench!(b, pma, find_overlapping_iter, haystacks);
     });
     group.bench_function("daachorse/bytewise/u64/no_suffix", |b| {
@@ -232,32 +234,36 @@ fn add_bytewise_find_overlapping_benches<P>(
             .unwrap();
         aho_corasick_bench!(b, pma, find_overlapping_iter, haystacks);
     });
-    group.bench_function("yada", |b| {
-        let data = yada::builder::DoubleArrayBuilder::build(
-            &patterns
-                .iter()
-                .cloned()
-                .enumerate()
-                .map(|(i, pattern)| (pattern, i as u32))
-                .collect::<Vec<_>>(),
-        )
-        .unwrap();
-        let da = yada::DoubleArray::new(data);
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                let haystack_bytes = haystack.as_bytes();
-                for i in 0..haystack_bytes.len() {
-                    for (id, length) in da.common_prefix_search(&haystack_bytes[i..]) {
-                        sum += i + length + id as usize;
+    // yada cannot load cl100k_base and o200k_base due to a bug.
+    // See https://github.com/takuyaa/yada/issues/34
+    if patterns.len() != 100256 && patterns.len() != 199998 {
+        group.bench_function("yada", |b| {
+            let data = yada::builder::DoubleArrayBuilder::build(
+                &patterns
+                    .iter()
+                    .cloned()
+                    .enumerate()
+                    .map(|(i, pattern)| (pattern, i as u32))
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap();
+            let da = yada::DoubleArray::new(data).unwrap();
+            b.iter(|| {
+                let mut sum = 0;
+                for haystack in haystacks {
+                    let haystack_bytes = haystack.as_bytes();
+                    for i in 0..haystack_bytes.len() {
+                        for (id, length) in da.common_prefix_search(&haystack_bytes[i..]) {
+                            sum += i + length + id as usize;
+                        }
                     }
                 }
-            }
-            if sum == 0 {
-                panic!();
-            }
+                if sum == 0 {
+                    panic!();
+                }
+            });
         });
-    });
+    }
     group.bench_function("fst/map", |b| {
         let fst = fst::raw::Fst::from_iter_map(
             patterns
@@ -289,12 +295,12 @@ fn add_charwise_find_overlapping_benches(
     patterns: &[String],
     haystacks: &[String],
 ) {
-    group.bench_function("daachorse/charwise/u64", |b| {
-        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
-        daachorse_bench!(b, pma, find_overlapping_iter, haystacks);
-    });
     group.bench_function("daachorse/charwise/u32", |b| {
         let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_overlapping_iter, haystacks);
+    });
+    group.bench_function("daachorse/charwise/u64", |b| {
+        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
         daachorse_bench!(b, pma, find_overlapping_iter, haystacks);
     });
     group.bench_function("daachorse/charwise/u64/no_suffix", |b| {
@@ -354,16 +360,16 @@ fn add_bytewise_find_leftmost_longest_benches<P>(
 ) where
     P: AsRef<[u8]> + Clone + Hash + Eq,
 {
-    group.bench_function("daachorse/bytewise/u64", |b| {
-        let pma: daachorse::DoubleArrayAhoCorasick<u64> =
+    group.bench_function("daachorse/bytewise/u32", |b| {
+        let pma: daachorse::DoubleArrayAhoCorasick<u32> =
             daachorse::DoubleArrayAhoCorasickBuilder::new()
                 .match_kind(daachorse::MatchKind::LeftmostLongest)
                 .build(patterns)
                 .unwrap();
         daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
     });
-    group.bench_function("daachorse/bytewise/u32", |b| {
-        let pma: daachorse::DoubleArrayAhoCorasick<u32> =
+    group.bench_function("daachorse/bytewise/u64", |b| {
+        let pma: daachorse::DoubleArrayAhoCorasick<u64> =
             daachorse::DoubleArrayAhoCorasickBuilder::new()
                 .match_kind(daachorse::MatchKind::LeftmostLongest)
                 .build(patterns)
@@ -392,16 +398,16 @@ fn add_charwise_find_leftmost_longest_benches(
     patterns: &[String],
     haystacks: &[String],
 ) {
-    group.bench_function("daachorse/charwise/u64", |b| {
-        let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u64> =
+    group.bench_function("daachorse/charwise/u32", |b| {
+        let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u32> =
             daachorse::CharwiseDoubleArrayAhoCorasickBuilder::new()
                 .match_kind(daachorse::MatchKind::LeftmostLongest)
                 .build(patterns)
                 .unwrap();
         daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
     });
-    group.bench_function("daachorse/charwise/u32", |b| {
-        let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u32> =
+    group.bench_function("daachorse/charwise/u64", |b| {
+        let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u64> =
             daachorse::CharwiseDoubleArrayAhoCorasickBuilder::new()
                 .match_kind(daachorse::MatchKind::LeftmostLongest)
                 .build(patterns)
@@ -417,16 +423,16 @@ fn add_bytewise_find_leftmost_first_benches<P>(
 ) where
     P: AsRef<[u8]> + Clone + Hash + Eq,
 {
-    group.bench_function("daachorse/bytewise/u64", |b| {
-        let pma: daachorse::DoubleArrayAhoCorasick<u64> =
+    group.bench_function("daachorse/bytewise/u32", |b| {
+        let pma: daachorse::DoubleArrayAhoCorasick<u32> =
             daachorse::DoubleArrayAhoCorasickBuilder::new()
                 .match_kind(daachorse::MatchKind::LeftmostFirst)
                 .build(patterns)
                 .unwrap();
         daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
     });
-    group.bench_function("daachorse/bytewise/u32", |b| {
-        let pma: daachorse::DoubleArrayAhoCorasick<u32> =
+    group.bench_function("daachorse/bytewise/u64", |b| {
+        let pma: daachorse::DoubleArrayAhoCorasick<u64> =
             daachorse::DoubleArrayAhoCorasickBuilder::new()
                 .match_kind(daachorse::MatchKind::LeftmostFirst)
                 .build(patterns)
@@ -455,16 +461,16 @@ fn add_charwise_find_leftmost_first_benches(
     patterns: &[String],
     haystacks: &[String],
 ) {
-    group.bench_function("daachorse/charwise/u64", |b| {
-        let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u64> =
+    group.bench_function("daachorse/charwise/u32", |b| {
+        let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u32> =
             daachorse::CharwiseDoubleArrayAhoCorasickBuilder::new()
                 .match_kind(daachorse::MatchKind::LeftmostFirst)
                 .build(patterns)
                 .unwrap();
         daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
     });
-    group.bench_function("daachorse/charwise/u32", |b| {
-        let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u32> =
+    group.bench_function("daachorse/charwise/u64", |b| {
+        let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u64> =
             daachorse::CharwiseDoubleArrayAhoCorasickBuilder::new()
                 .match_kind(daachorse::MatchKind::LeftmostFirst)
                 .build(patterns)
@@ -611,7 +617,7 @@ define_find_bench!(
 );
 define_find_bench!(
     criterion_unidic_find_charwise,
-    add_bytewise_find_benches,
+    add_charwise_find_benches,
     "unidic/find",
     load_text_file,
     "../data/unidic/unidic",
@@ -709,7 +715,7 @@ define_find_bench!(
 );
 define_find_bench!(
     criterion_unidic_find_overlapping_charwise,
-    add_bytewise_find_overlapping_benches,
+    add_charwise_find_overlapping_benches,
     "unidic/find_overlapping",
     load_text_file,
     "../data/unidic/unidic",
@@ -807,7 +813,7 @@ define_find_bench!(
 );
 define_find_bench!(
     criterion_unidic_find_leftmost_longest_charwise,
-    add_bytewise_find_leftmost_longest_benches,
+    add_charwise_find_leftmost_longest_benches,
     "unidic/find_leftmost_longest",
     load_text_file,
     "../data/unidic/unidic",
@@ -905,7 +911,7 @@ define_find_bench!(
 );
 define_find_bench!(
     criterion_unidic_find_leftmost_first_charwise,
-    add_bytewise_find_leftmost_first_benches,
+    add_charwise_find_leftmost_first_benches,
     "unidic/find_leftmost_first",
     load_text_file,
     "../data/unidic/unidic",
@@ -974,14 +980,14 @@ define_build_bench!(
     add_bytewise_build_benches,
     "cl100k/build",
     load_base64_file,
-    "../data/toktoken/cl100k_base.base64"
+    "../data/tiktoken/cl100k_base.base64"
 );
 define_build_bench!(
     criterion_o200k_build,
     add_bytewise_build_benches,
     "o200k/build",
     load_base64_file,
-    "../data/toktoken/cl100k_base.base64"
+    "../data/tiktoken/o200k_base.base64"
 );
 define_build_bench!(
     criterion_unidic_build_bytewise,

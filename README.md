@@ -8,12 +8,13 @@ Here provides benchmark tools to compare the performance of data structures for 
 
 Directory `rust` provides benchmarks for the following libraries:
 
+- [`aho_corasick::AhoCorasick`](https://docs.rs/aho-corasick/latest/aho_corasick/struct.AhoCorasick.html)
+- [`daachorse::DoubleArrayAhoCorasick`](https://docs.rs/daachorse/latest/daachorse/bytewise/struct.DoubleArrayAhoCorasick.html)
+- [`daachorse::CharwiseDoubleArrayAhoCorasick`](https://docs.rs/daachorse/latest/daachorse/charwise/struct.CharwiseDoubleArrayAhoCorasick.html)
 - [`crawdad::Trie`](https://docs.rs/crawdad/latest/crawdad/trie/struct.Trie.html)
 - [`crawdad::MpTrie`](https://docs.rs/crawdad/latest/crawdad/mptrie/struct.MpTrie.html)
 - [`yada::DoubleArray`](https://docs.rs/yada/latest/yada/struct.DoubleArray.html)
 - [`fst::Map`](https://docs.rs/fst/latest/fst/struct.Map.html)
-- [`daachorse::DoubleArrayAhoCorasick`](https://docs.rs/daachorse/latest/daachorse/bytewise/struct.DoubleArrayAhoCorasick.html)
-- [`daachorse::CharwiseDoubleArrayAhoCorasick`](https://docs.rs/daachorse/latest/daachorse/charwise/struct.CharwiseDoubleArrayAhoCorasick.html)
 - [`std::collections::BTreeMap`](https://doc.rust-lang.org/std/collections/struct.BTreeMap.html)
 - [`std::collections::HashMap`](https://doc.rust-lang.org/std/collections/struct.HashMap.html)
 - [`hashbrown::HashMap`](https://docs.rs/hashbrown/latest/hashbrown/struct.HashMap.html)
@@ -44,11 +45,6 @@ you can measure search time with [`pytest`](https://pytest.org/) in the followin
 ```
 $ nox
 ```
-
-## Disclaimer
-
-This software is developed by LegalForce, Inc.,
-but not an officially supported LegalForce product.
 
 ## License
 
