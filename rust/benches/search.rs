@@ -406,6 +406,14 @@ fn add_charwise_find_leftmost_longest_benches(
                 .unwrap();
         daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
     });
+    group.bench_function("daachorse-exp/charwise/u32", |b| {
+        let pma: daachorse_exp::CharwiseDoubleArrayAhoCorasick<u32> =
+            daachorse_exp::CharwiseDoubleArrayAhoCorasickBuilder::new()
+                .match_kind(daachorse_exp::MatchKind::LeftmostLongestExperimental)
+                .build(patterns)
+                .unwrap();
+        daachorse_bench!(b, pma, leftmost_find_iter_experimental, haystacks);
+    });
     group.bench_function("daachorse/charwise/u64", |b| {
         let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u64> =
             daachorse::CharwiseDoubleArrayAhoCorasickBuilder::new()
@@ -413,6 +421,14 @@ fn add_charwise_find_leftmost_longest_benches(
                 .build(patterns)
                 .unwrap();
         daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
+    });
+    group.bench_function("daachorse-exp/charwise/u64", |b| {
+        let pma: daachorse_exp::CharwiseDoubleArrayAhoCorasick<u64> =
+            daachorse_exp::CharwiseDoubleArrayAhoCorasickBuilder::new()
+                .match_kind(daachorse_exp::MatchKind::LeftmostLongestExperimental)
+                .build(patterns)
+                .unwrap();
+        daachorse_bench!(b, pma, leftmost_find_iter_experimental, haystacks);
     });
 }
 
@@ -469,6 +485,14 @@ fn add_charwise_find_leftmost_first_benches(
                 .unwrap();
         daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
     });
+    group.bench_function("daachorse-exp/charwise/u32", |b| {
+        let pma: daachorse_exp::CharwiseDoubleArrayAhoCorasick<u32> =
+            daachorse_exp::CharwiseDoubleArrayAhoCorasickBuilder::new()
+                .match_kind(daachorse_exp::MatchKind::LeftmostFirstExperimental)
+                .build(patterns)
+                .unwrap();
+        daachorse_bench!(b, pma, leftmost_find_iter_experimental, haystacks);
+    });
     group.bench_function("daachorse/charwise/u64", |b| {
         let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u64> =
             daachorse::CharwiseDoubleArrayAhoCorasickBuilder::new()
@@ -476,6 +500,14 @@ fn add_charwise_find_leftmost_first_benches(
                 .build(patterns)
                 .unwrap();
         daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
+    });
+    group.bench_function("daachorse-exp/charwise/u64", |b| {
+        let pma: daachorse_exp::CharwiseDoubleArrayAhoCorasick<u64> =
+            daachorse_exp::CharwiseDoubleArrayAhoCorasickBuilder::new()
+                .match_kind(daachorse_exp::MatchKind::LeftmostFirstExperimental)
+                .build(patterns)
+                .unwrap();
+        daachorse_bench!(b, pma, leftmost_find_iter_experimental, haystacks);
     });
 }
 

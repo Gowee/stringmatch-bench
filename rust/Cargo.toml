@@ -6,7 +6,8 @@ edition = "2021"
 [dependencies]
 aho-corasick = "=1.1.4"  # Unlicense or MIT
 crawdad = "=0.4.0"  # MIT or Apache-2.0
-daachorse = "=3.0.3"  # MIT or Apache-2.0
+daachorse = { git = "https://github.com/daac-tools/daachorse.git" }
+daachorse_exp = { package = "daachorse", git = "https://github.com/Gowee/daachorse.git", branch = "linear-leftmost-longest-automaton" }
 fst = "=0.4.7"  # Unlicense or MIT
 hashbrown = "=0.17.1"  # MIT or Apache-2.0
 yada = "=0.7.0"  # MIT or Apache-2.0
