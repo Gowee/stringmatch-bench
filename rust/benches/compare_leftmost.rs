@@ -55,8 +55,21 @@ fn arms(
             }
         })
     });
+    group.bench_function("daachorse-exp/owned-iter/u32", |b| {
+        b.iter(|| {
+            let mut sum = 0usize;
+            for h in hs {
+                for m in exp.leftmost_find_iter_experimental(h) {
+                    sum += m.start() + m.end() + m.value() as usize;
+                }
+            }
+            if sum == 0 {
+                panic!("No matches found");
+            }
+        })
+    });
     let mut finder = exp.leftmost_experimental_finder();
-    group.bench_function("daachorse-exp/charwise/u32", |b| {
+    group.bench_function("daachorse-exp/finder/u32", |b| {
         b.iter(|| {
             let mut sum = 0usize;
             for h in hs {

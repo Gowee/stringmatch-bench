@@ -4,10 +4,6 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::time::Instant;
 
-enum Automaton {
-    Legacy(daachorse::CharwiseDoubleArrayAhoCorasick<u32>),
-    Linear(daachorse_exp::CharwiseDoubleArrayAhoCorasick<u32>),
-}
 
 fn load_lines<P: AsRef<Path>>(p: P) -> Vec<String> {
     BufReader::new(File::open(p).unwrap())
@@ -24,14 +20,26 @@ fn load_whole<P: AsRef<Path>>(p: P) -> String {
     s
 }
 
+enum Mode {
+    Legacy,
+    Owned,
+    Finder,
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 3 {
-        eprintln!("Usage: profile_compare <legacy|experimental> <dataset> [reps] [--lines]");
+        eprintln!("Usage: profile_compare <legacy|owned|finder> <dataset> [reps] [--lines]");
         std::process::exit(1);
     }
 
-    let mode = &args[1];
+    let mode_str = args[1].as_str();
+    let mode = match mode_str {
+        "legacy" | "leg" => Mode::Legacy,
+        "owned" | "iter" | "exp_owned" => Mode::Owned,
+        "finder" | "exp_finder" | "experimental" | "exp" => Mode::Finder,
+        _ => panic!("Unknown mode: {}. Use legacy, owned, or finder.", mode_str),
+    };
     let dataset = &args[2];
     let reps: usize = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(50);
     let per_line = args.iter().any(|a| a == "--lines");
@@ -54,35 +62,36 @@ fn main() {
     let total_bytes: usize = haystacks.iter().map(|h| h.len()).sum();
 
     eprintln!(
-        "Building {} automaton for {} (patterns: {}, mode: {})...",
-        mode,
+        "Building automaton for {} (mode: {}, patterns: {}, lines: {})...",
         dataset,
+        mode_str,
         pats.len(),
         if per_line { "per-line" } else { "long-text" }
     );
 
-    let automaton = match mode.as_str() {
-        "legacy" => {
-            let pma = daachorse::CharwiseDoubleArrayAhoCorasickBuilder::new()
-                .match_kind(daachorse::MatchKind::LeftmostLongest)
-                .build(&pats)
-                .unwrap();
-            Automaton::Legacy(pma)
+    let (legacy_pma, linear_pma) = match mode {
+        Mode::Legacy => {
+            let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u32> =
+                daachorse::CharwiseDoubleArrayAhoCorasickBuilder::new()
+                    .match_kind(daachorse::MatchKind::LeftmostLongest)
+                    .build(&pats)
+                    .unwrap();
+            (Some(pma), None)
         }
-        "base" | "eager" | "experimental" | "single" | "full" | "linear" | "exp" => {
-            let pma = daachorse_exp::CharwiseDoubleArrayAhoCorasickBuilder::new()
-                .match_kind(daachorse_exp::MatchKind::LeftmostLongestExperimental)
-                .build(&pats)
-                .unwrap();
-            Automaton::Linear(pma)
+        Mode::Owned | Mode::Finder => {
+            let pma: daachorse_exp::CharwiseDoubleArrayAhoCorasick<u32> =
+                daachorse_exp::CharwiseDoubleArrayAhoCorasickBuilder::new()
+                    .match_kind(daachorse_exp::MatchKind::LeftmostLongestExperimental)
+                    .build(&pats)
+                    .unwrap();
+            (None, Some(pma))
         }
-        _ => panic!("Unknown mode: {}", mode),
     };
 
     eprintln!("Done building. Running {} reps...", reps);
 
-    let mut linear_finder = match &automaton {
-        Automaton::Linear(pma) => Some(pma.leftmost_experimental_finder()),
+    let mut linear_finder = match (&mode, &linear_pma) {
+        (Mode::Finder, Some(pma)) => Some(pma.leftmost_experimental_finder()),
         _ => None,
     };
 
@@ -90,21 +99,38 @@ fn main() {
     for _ in 0..3 {
         let mut sum = 0usize;
         for hay in &haystacks {
-            match (&automaton, &mut linear_finder) {
-                (Automaton::Legacy(pma), _) => {
-                    for m in pma.leftmost_find_iter(hay) {
+            match mode {
+                Mode::Legacy => {
+                    for m in legacy_pma.as_ref().unwrap().leftmost_find_iter(hay) {
                         sum += m.start() + m.end() + m.value() as usize;
                     }
                 }
-                (Automaton::Linear(_), Some(finder)) => {
-                    for m in finder.find_iter(hay) {
+                Mode::Owned => {
+                    for m in linear_pma.as_ref().unwrap().leftmost_find_iter_experimental(hay) {
                         sum += m.start() + m.end() + m.value() as usize;
                     }
                 }
-                _ => unreachable!(),
+                Mode::Finder => {
+                    for m in linear_finder.as_mut().unwrap().find_iter(hay) {
+                        sum += m.start() + m.end() + m.value() as usize;
+                    }
+                }
             }
         }
         black_box(sum);
+    }
+
+    let mut perf_fifo = std::env::var("PERF_CTL").ok().map(|p| {
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(p)
+            .expect("Failed to open PERF_CTL fifo")
+    });
+
+    if let Some(f) = perf_fifo.as_mut() {
+        use std::io::Write;
+        f.write_all(b"enable\n").unwrap();
+        f.flush().unwrap();
     }
 
     let start = Instant::now();
@@ -113,9 +139,9 @@ fn main() {
 
     for _ in 0..reps {
         for hay in &haystacks {
-            match (&automaton, &mut linear_finder) {
-                (Automaton::Legacy(pma), _) => {
-                    for m in pma.leftmost_find_iter(hay) {
+            match mode {
+                Mode::Legacy => {
+                    for m in legacy_pma.as_ref().unwrap().leftmost_find_iter(hay) {
                         total_matches += 1;
                         total_checksum = total_checksum
                             .wrapping_mul(31)
@@ -126,8 +152,8 @@ fn main() {
                             .wrapping_add(m.value() as u64);
                     }
                 }
-                (Automaton::Linear(_), Some(finder)) => {
-                    for m in finder.find_iter(hay) {
+                Mode::Owned => {
+                    for m in linear_pma.as_ref().unwrap().leftmost_find_iter_experimental(hay) {
                         total_matches += 1;
                         total_checksum = total_checksum
                             .wrapping_mul(31)
@@ -138,9 +164,26 @@ fn main() {
                             .wrapping_add(m.value() as u64);
                     }
                 }
-                _ => unreachable!(),
+                Mode::Finder => {
+                    for m in linear_finder.as_mut().unwrap().find_iter(hay) {
+                        total_matches += 1;
+                        total_checksum = total_checksum
+                            .wrapping_mul(31)
+                            .wrapping_add(m.start() as u64)
+                            .wrapping_mul(31)
+                            .wrapping_add(m.end() as u64)
+                            .wrapping_mul(31)
+                            .wrapping_add(m.value() as u64);
+                    }
+                }
             }
         }
+    }
+
+    if let Some(f) = perf_fifo.as_mut() {
+        use std::io::Write;
+        f.write_all(b"disable\n").unwrap();
+        f.flush().unwrap();
     }
 
     let elapsed = start.elapsed();
@@ -150,7 +193,7 @@ fn main() {
 
     println!(
         "[{}] {} ({}): {:.3} ms/rep ({:.1} MiB/s), matches/rep: {}, checksum: {:#016x}",
-        mode,
+        mode_str,
         dataset,
         if per_line { "per-line" } else { "long-text" },
         per_rep * 1e3,
