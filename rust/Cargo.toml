@@ -22,6 +22,14 @@ criterion = { version = "0.8.2", features = ["html_reports"] }  # Apache-2.0 or 
 name = "search"
 harness = false
 
+[[bench]]
+name = "compare_leftmost"
+harness = false
+
 [[bin]]
 name = "measure"
 path = "src/measure.rs"
+
+[[bin]]
+name = "profile_compare"
+path = "src/profile_compare.rs"

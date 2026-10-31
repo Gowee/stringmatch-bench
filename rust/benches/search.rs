@@ -412,7 +412,8 @@ fn add_charwise_find_leftmost_longest_benches(
                 .match_kind(daachorse_exp::MatchKind::LeftmostLongestExperimental)
                 .build(patterns)
                 .unwrap();
-        daachorse_bench!(b, pma, leftmost_find_iter_experimental, haystacks);
+        let mut finder = pma.leftmost_experimental_finder();
+        daachorse_bench!(b, finder, find_iter, haystacks);
     });
     group.bench_function("daachorse/charwise/u64", |b| {
         let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u64> =
@@ -428,7 +429,8 @@ fn add_charwise_find_leftmost_longest_benches(
                 .match_kind(daachorse_exp::MatchKind::LeftmostLongestExperimental)
                 .build(patterns)
                 .unwrap();
-        daachorse_bench!(b, pma, leftmost_find_iter_experimental, haystacks);
+        let mut finder = pma.leftmost_experimental_finder();
+        daachorse_bench!(b, finder, find_iter, haystacks);
     });
 }
 
@@ -491,7 +493,8 @@ fn add_charwise_find_leftmost_first_benches(
                 .match_kind(daachorse_exp::MatchKind::LeftmostFirstExperimental)
                 .build(patterns)
                 .unwrap();
-        daachorse_bench!(b, pma, leftmost_find_iter_experimental, haystacks);
+        let mut finder = pma.leftmost_experimental_finder();
+        daachorse_bench!(b, finder, find_iter, haystacks);
     });
     group.bench_function("daachorse/charwise/u64", |b| {
         let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u64> =
@@ -507,7 +510,8 @@ fn add_charwise_find_leftmost_first_benches(
                 .match_kind(daachorse_exp::MatchKind::LeftmostFirstExperimental)
                 .build(patterns)
                 .unwrap();
-        daachorse_bench!(b, pma, leftmost_find_iter_experimental, haystacks);
+        let mut finder = pma.leftmost_experimental_finder();
+        daachorse_bench!(b, finder, find_iter, haystacks);
     });
 }
 
