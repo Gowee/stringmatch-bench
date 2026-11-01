@@ -43,7 +43,7 @@ macro_rules! define_find_bench {
             group.measurement_time(SEARCH_MEASURE_TIME);
             let mut patterns = $loader($corpus);
             patterns.sort_unstable();
-            let haystacks = load_text_file($haystack);
+            let haystacks = vec![std::fs::read_to_string($haystack).unwrap()];
             $bench(&mut group, &patterns, &haystacks);
         }
     };
